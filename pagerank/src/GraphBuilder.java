@@ -131,6 +131,7 @@ public class GraphBuilder {
 		conf.setInputFormat(TextInputFormat.class);
 		conf.setMapperClass(GraphBuilderMapper.class);
 
+		FileSystem.get(conf).delete(new Path(outputPath),true);
 		FileOutputFormat.setOutputPath(conf, new Path(outputPath));
 		conf.setOutputFormat(TextOutputFormat.class);
 		conf.setOutputKeyClass(Text.class);
