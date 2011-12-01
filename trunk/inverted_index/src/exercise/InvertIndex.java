@@ -4,6 +4,7 @@ import java.util.*;
 import java.io.*;
 
 import org.apache.hadoop.mapred.*;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.util.*;
 import org.apache.hadoop.io.*;
@@ -13,6 +14,8 @@ public class InvertIndex {
 	public static class Map extends MapReduceBase implements Mapper<LongWritable, Text, Text, Text> {
 		private Text word = new Text();
 		private Text location = new Text();
+		private HashSet<String> dict = new HashSet<String>();
+		
 		@Override
 		public void map(LongWritable key, Text value,
 				OutputCollector<Text, Text> output, Reporter reporter)
@@ -22,12 +25,37 @@ public class InvertIndex {
 			FileSplit fileSplit = (FileSplit)reporter.getInputSplit();
 			String fileName = fileSplit.getPath().getName();
 			location.set(fileName);
+			if (dict.isEmpty()){
+				readDict();
+			}
 			while (tokenizer.hasMoreTokens()){
-				word.set(tokenizer.nextToken());
-				output.collect(word, location);
+				String word_str = scrub(tokenizer.nextToken());
+				if (!dict.contains(word_str)) {
+					word.set(word_str);
+					output.collect(word, location);
+				}
 			}
 		}
-		
+		private String scrub(String noisyword) {			
+			return noisyword.toLowerCase().replaceAll("\\pP|\\pS", "");
+		}
+		private void readDict() throws IOException {
+			Configuration conf = new Configuration();
+			FileSystem fs = FileSystem.get(conf);
+			InputStream in = null;
+			try {
+				in = fs.open(new Path("dict"));				
+				Scanner sc = new Scanner(in);
+				while (sc.hasNext()) {
+					String dictword = scrub(sc.next());
+					if (sc.nextInt()>5) {
+						dict.add(dictword);						
+					}					
+				}				
+			}finally {
+				IOUtils.closeStream(in);
+			}
+		}
 	}
 	
 	public static class Reduce extends MapReduceBase implements Reducer<Text, Text, Text, Text> {
