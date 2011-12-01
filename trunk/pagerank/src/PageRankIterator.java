@@ -2,9 +2,7 @@ import java.io.IOException;
 import java.util.Iterator;
 
 import org.apache.hadoop.mapred.*;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
-import org.apache.hadoop.util.*;
 import org.apache.hadoop.io.*;
 
 public class PageRankIterator {
