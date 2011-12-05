@@ -35,17 +35,19 @@ public class GraphBuilder {
 		private String[] parseTitleAndText(Text value) throws CharacterCodingException {
 			String[] titleAndText = new String[2];
 			int start = value.find("&lttitle&gt");
+			if (start == -1) return new String[]{"", ""};
 			start += 11;
 			int end = value.find("&lt/title&gt", start);
-		
+			if (end == -1) return new String[]{"", ""};
+
 			titleAndText[0] = Text.decode(value.getBytes(), start, end-start);
 
 			start = value.find("&lttext&gt");
+			//if (start == -1) return new String[]{"", ""};
 			start += 10;
 			end = value.find("&lt/text&gt", start);
-
-			if (start == -1 || end == -1)
-				return new String[]{"", ""};
+			//if (end == -1) return new String[]{"", ""};
+			if (start == -1 || end == -1) return new String[]{"", ""};
 
 			titleAndText[1] = Text.decode(value.getBytes(), start, end-start);
 			return titleAndText;
