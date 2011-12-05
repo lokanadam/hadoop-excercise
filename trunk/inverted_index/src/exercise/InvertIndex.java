@@ -15,6 +15,7 @@ public class InvertIndex {
 		private Text word = new Text();
 		private Text location = new Text();
 		private HashSet<String> dict = new HashSet<String>();
+		private final static int numCommonWords = 6000; 
 		
 		@Override
 		public void map(LongWritable key, Text value,
@@ -44,13 +45,15 @@ public class InvertIndex {
 			FileSystem fs = FileSystem.get(conf);
 			InputStream in = null;
 			try {
+				int countNum = 0;
 				in = fs.open(new Path("dict"));				
-				Scanner sc = new Scanner(in);
-				while (sc.hasNext()) {
+				Scanner sc = new Scanner(in);				
+				while (sc.hasNext() && countNum < numCommonWords) {					
+					//if (sc.nextInt()>5) {
 					String dictword = scrub(sc.next());
-					if (sc.nextInt()>5) {
-						dict.add(dictword);						
-					}					
+					dict.add(dictword);
+					countNum ++;
+					//}					
 				}				
 			}finally {
 				IOUtils.closeStream(in);
