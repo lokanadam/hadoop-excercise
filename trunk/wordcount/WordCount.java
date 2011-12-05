@@ -34,7 +34,21 @@ public class WordCount {
 		}
 	}
 
+	public static class SortMapper extends MapReduceBase implements Mapper<Text, IntWritable, IntWritable, Text> {
+		public void map(Text key, IntWritable value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
+			output.collect(value, key);
+		}
+	}
+
+	public static class InvertedComparator extends IntWritable.Comparator {
+		public int compare(WritableComparable a, WritableComparable b) { return -super.compare(a, b); }
+		public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) { return -super.compare(b1, s1, l1, b2, s2, l2); }
+	}
+
 	public static void main(String args[]) throws Exception {
+		String tmpPath = "/wordcount/tmp";
+
+		// count job
 		JobConf conf = new JobConf(WordCount.class);
 		conf.setJobName("wordcount");
 
@@ -46,10 +60,29 @@ public class WordCount {
 		conf.setReducerClass(Reduce.class);
 
 		conf.setInputFormat(TextInputFormat.class);
+		conf.setOutputFormat(SequenceFileOutputFormat.class);
+		FileSystem.get(conf).delete(new Path(tmpPath), true);
+
+		FileInputFormat.setInputPaths(conf, new Path(args[0]));
+		FileOutputFormat.setOutputPath(conf, new Path(tmpPath));
+
+		JobClient.runJob(conf);
+
+		// sort job
+		conf = new JobConf(WordCount.class);
+		conf.setJobName("sortjob");
+
+		conf.setOutputKeyClass(IntWritable.class);
+		conf.setOutputKeyComparatorClass(InvertedComparator.class);
+		conf.setOutputValueClass(Text.class);
+
+		conf.setMapperClass(SortMapper.class);
+
+		conf.setInputFormat(SequenceFileInputFormat.class);
 		conf.setOutputFormat(TextOutputFormat.class);
 		FileSystem.get(conf).delete(new Path(args[1]), true);
 
-		FileInputFormat.setInputPaths(conf, new Path(args[0]));
+		FileInputFormat.setInputPaths(conf, new Path(tmpPath));
 		FileOutputFormat.setOutputPath(conf, new Path(args[1]));
 
 		JobClient.runJob(conf);
