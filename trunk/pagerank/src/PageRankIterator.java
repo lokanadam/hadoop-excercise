@@ -68,6 +68,7 @@ public class PageRankIterator {
 		
 		conf.setInputFormat(TextInputFormat.class);
 		conf.setOutputFormat(TextOutputFormat.class);
+		//conf.setNumReduceTasks(3);
 		
 		FileSystem.get(conf).delete(new Path(outputPath), true);
 		FileInputFormat.setInputPaths(conf, new Path(inputPath));
