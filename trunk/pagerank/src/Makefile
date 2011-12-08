@@ -15,7 +15,8 @@ JAR_NAME=pagerank.jar
 CLASS_FOLDER=classes/
 
 # File paths on HDFS
-INPUT=/pagerank/mini_wiki.txt
+#INPUT=/pagerank/mini_wiki.txt
+INPUT=/pagerank/input
 OUTPUT=/pagerank/output
 
 all:

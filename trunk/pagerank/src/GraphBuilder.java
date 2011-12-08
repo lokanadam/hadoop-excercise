@@ -139,7 +139,7 @@ public class GraphBuilder {
 		conf.setOutputKeyClass(Text.class);
 		conf.setOutputValueClass(Text.class);
 		conf.setReducerClass(GraphBuilderReducer.class);
-
+		conf.setNumReduceTasks(2);
 		JobClient.runJob(conf);
 	}
 
