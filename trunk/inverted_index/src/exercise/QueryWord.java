@@ -29,7 +29,6 @@ public class QueryWord {
 	}
 
 	public static void main(String[] args) throws IOException {
-		String tmpOutput = "/inverted/tmpoutput";
 		JobConf conf = new JobConf(QueryWord.class);
 		FileSystem fs = FileSystem.get(conf);
 
@@ -43,7 +42,7 @@ public class QueryWord {
 		conf.setOutputValueClass(Text.class);
 
 		FileInputFormat.setInputPaths(conf, new Path(args[0]));
-		FileOutputFormat.setOutputPath(conf, new Path(tmpOutput));
+		FileOutputFormat.setOutputPath(conf, new Path(args[1]));
 		
 		// read the keyword
 		Scanner s = new Scanner(System.in);
@@ -51,13 +50,13 @@ public class QueryWord {
 		String word = s.next();
 		conf.set("keyword", word);
 
-		fs.delete(new Path(tmpOutput), true);
+		fs.delete(new Path(args[1]), true);
 
 		JobClient.runJob(conf);
 
 		// print the result
 		System.out.println("The result is:");
-		s = new Scanner(fs.open(new Path(tmpOutput + "/part-00000")));
+		s = new Scanner(fs.open(new Path(args[1] + "/part-00000")));
 		s.next();
 		System.out.println(s.next());
 	}

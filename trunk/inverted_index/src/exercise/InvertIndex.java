@@ -46,7 +46,7 @@ public class InvertIndex {
 			InputStream in = null;
 			try {
 				int countNum = 0;
-				in = fs.open(new Path("dict"));				
+				in = fs.open(new Path("/dict"));				
 				Scanner sc = new Scanner(in);				
 				while (sc.hasNext() && countNum < numCommonWords) {					
 					//if (sc.nextInt()>5) {
