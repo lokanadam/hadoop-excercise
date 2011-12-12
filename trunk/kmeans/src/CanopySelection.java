@@ -23,12 +23,7 @@ public class CanopySelection {
 	public static class CanopySelectionMapper extends MapReduceBase implements
 			Mapper<Text, Text, Text, Text> {
 
-		private ArrayList<Movie> canopyCenters;
-
-		@Override
-		public void configure(JobConf job) {
-			this.canopyCenters = new ArrayList<Movie>();
-		}
+		private ArrayList<Movie> canopyCenters = new ArrayList<Movie>();
 
 		@Override
 		public void map(Text key, Text values,

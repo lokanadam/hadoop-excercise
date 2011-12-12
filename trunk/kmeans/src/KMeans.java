@@ -6,6 +6,7 @@ import java.util.Iterator;
 import java.util.TreeMap;
 import java.util.TreeSet;
 
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SequenceFile;
@@ -29,7 +30,6 @@ public class KMeans {
 	public final static String KMEANS = "KMeans";
 	public final static String OUTPUT = "Output";
 	public final static String CONFIG = "CONFIG";
-	public final static String SUFFIX = "/part-00000";
 
 	public final static int ITERATION = 5;
 	public final static int THRESHOLD = 50;
@@ -45,23 +45,27 @@ public class KMeans {
 			try {
 
 				FileSystem fs = FileSystem.get(conf);
-				Path path = new Path(conf.get(CONFIG) + SUFFIX);
-				SequenceFile.Reader reader = new SequenceFile.Reader(fs, path,
-						conf);
-				Text key = new Text();
-				Text value = new Text();
+				FileStatus[] status = fs.listStatus(new Path(conf.get(CONFIG)));
 
-				while (true) {
+				for (int i = 0; i < status.length; i++) {
 
-					reader.next(key, value);
+					SequenceFile.Reader reader = new SequenceFile.Reader(fs,
+							status[i].getPath(), conf);
+					Text key = new Text();
+					Text value = new Text();
 
-					if (key.toString().equals(""))
-						break;
+					while (true) {
 
-					Movie curr = new Movie(key.toString(), value.toString(),
-							false);
-					kmeansCenters.put(key.toString(), curr);
-					key.set("");
+						reader.next(key, value);
+
+						if (key.toString().equals(""))
+							break;
+
+						Movie curr = new Movie(key.toString(),
+								value.toString(), false);
+						kmeansCenters.put(key.toString(), curr);
+						key.set("");
+					}
 				}
 			} catch (IOException e) {
 				e.printStackTrace();

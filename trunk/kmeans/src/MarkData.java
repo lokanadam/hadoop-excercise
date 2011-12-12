@@ -1,5 +1,7 @@
 import java.io.IOException;
 import java.util.ArrayList;
+
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.SequenceFile;
@@ -20,7 +22,6 @@ public class MarkData {
 
 	public final static String MARKDATA = "MarkData";
 	public final static String CONFIG = "CONFIG";
-	public final static String SUFFIX = "/part-00000";
 
 	public static class MarkDataMapper extends MapReduceBase implements
 			Mapper<Text, Text, Text, Text> {
@@ -33,23 +34,28 @@ public class MarkData {
 			try {
 
 				FileSystem fs = FileSystem.get(conf);
-				Path path = new Path(conf.get(CONFIG) + SUFFIX);
-				SequenceFile.Reader reader = new SequenceFile.Reader(fs, path,
-						conf);
-				Text key = new Text();
-				Text value = new Text();
 
-				while (true) {
+				FileStatus[] status = fs.listStatus(new Path(conf.get(CONFIG)));
 
-					reader.next(key, value);
+				for (int i = 0; i < status.length; i++) {
 
-					if (key.toString().equals(""))
-						break;
+					SequenceFile.Reader reader = new SequenceFile.Reader(fs,
+							status[i].getPath(), conf);
+					Text key = new Text();
+					Text value = new Text();
 
-					Movie curr = new Movie(key.toString(), value.toString(),
-							true);
-					capopyCenters.add(curr);
-					key.set("");
+					while (true) {
+
+						reader.next(key, value);
+
+						if (key.toString().equals(""))
+							break;
+
+						Movie curr = new Movie(key.toString(),
+								value.toString(), true);
+						capopyCenters.add(curr);
+						key.set("");
+					}
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
