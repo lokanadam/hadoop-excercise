@@ -89,7 +89,7 @@ public class Canopy {
 			}	
 		}
 	}
-	public static void runJob(String input, String output) throws Exception {
+	public static void runJob(String input, String output, String numMovie) throws Exception {
 
 		JobConf iconf = new JobConf(Canopy.class);
 		iconf.setJobName("IndexInvert");
@@ -105,10 +105,10 @@ public class Canopy {
 
 		iconf.setInputFormat(SequenceFileInputFormat.class);
 		iconf.setOutputFormat(SequenceFileOutputFormat.class);
-		FileSystem.get(iconf).delete(new Path("/tmp/kmeans/indexinvert"), true);
+		FileSystem.get(iconf).delete(new Path("/kmeans/indexinvert"), true);
 
 		FileInputFormat.setInputPaths(iconf, new Path(input));
-		FileOutputFormat.setOutputPath(iconf, new Path("/tmp/kmeans/indexinvert"));
+		FileOutputFormat.setOutputPath(iconf, new Path("/kmeans/indexinvert"));
 
 		JobClient.runJob(iconf);
 
@@ -118,7 +118,7 @@ public class Canopy {
 		JobConf cconf = new JobConf(Canopy.class);
 		cconf.setJobName("Canopy");
 
-		cconf.set("movie number", "100");
+		cconf.set("movie number", numMovie);
 
 		cconf.setOutputKeyClass(IntWritable.class);
 		cconf.setOutputValueClass(Text.class);
@@ -131,13 +131,13 @@ public class Canopy {
 		cconf.setOutputFormat(SequenceFileOutputFormat.class);
 		FileSystem.get(cconf).delete(new Path(output), true);
 
-		FileInputFormat.setInputPaths(cconf, new Path("/tmp/kmeans/indexinvert"));
+		FileInputFormat.setInputPaths(cconf, new Path("/kmeans/indexinvert"));
 		FileOutputFormat.setOutputPath(cconf, new Path(output));
 
 		JobClient.runJob(cconf);
 		
 	}
 	public static void main(String args[]) throws Exception {
-		runJob(args[0], args[1]);
+		runJob(args[0], args[1], args[2]);
 	}
 }

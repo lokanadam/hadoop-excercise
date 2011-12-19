@@ -38,7 +38,7 @@ public class MarkData {
 
 		}
 	}
-	public static void runJob(String input, String output) throws Exception {
+	public static void runJob(String data, String canopy, String output) throws Exception {
 
 		JobConf conf = new JobConf(MarkData.class);
 		conf.setJobName("MarkData");
@@ -46,8 +46,8 @@ public class MarkData {
 		conf.setOutputKeyClass(IntWritable.class);
 		conf.setOutputValueClass(Text.class);
 
-		MultipleInputs.addInputPath(conf, new Path("/tmp/kmeans/dataprepare"), SequenceFileInputFormat.class, IdentityMapper.class);
-		MultipleInputs.addInputPath(conf, new Path(input), SequenceFileInputFormat.class, CanopyMap.class);
+		MultipleInputs.addInputPath(conf, new Path(data), SequenceFileInputFormat.class, IdentityMapper.class);
+		MultipleInputs.addInputPath(conf, new Path(canopy), SequenceFileInputFormat.class, CanopyMap.class);
 		conf.setReducerClass(Reduce.class);
 		conf.setOutputFormat(SequenceFileOutputFormat.class);
 
@@ -57,6 +57,6 @@ public class MarkData {
 		JobClient.runJob(conf);
 	}
 	public static void main(String args[]) throws Exception {
-		runJob(args[0], args[1]);
+		runJob(args[0], args[1], args[2]);
 	}
 }
