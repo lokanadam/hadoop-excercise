@@ -9,25 +9,23 @@ import org.apache.hadoop.mapred.lib.*;
 import org.apache.hadoop.util.*;
 
 public class KMeansIter {
-	public static class CenterMap extends MapReduceBase implements Mapper<IntWritable, Text, IntWritable, Text>{
-		public void map(IntWritable key, Text value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
-			output.collect(key, new Text("center"));
-		}
-	}
-
 	
 	public static class CenterReduce extends MapReduceBase implements Reducer<IntWritable, Text, IntWritable, Text> {
 		public void reduce(IntWritable key, Iterator<Text> values, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
 			boolean isCenter = false;
 			String property = "";
-			while( values.hasNext() ){ String tmp = values.next().toString();	
-				if (tmp.equals("center"))
+			String set = "";
+			while( values.hasNext() ){ 
+				String tmp = values.next().toString();	
+				if (tmp.indexOf(':') == -1){
 					isCenter = true;
+					set = tmp;
+				}
 				else
-					property = tmp;
+					property = tmp.split(";")[0];
 			}
 			if ( isCenter )
-				output.collect(key, new Text(property));
+				output.collect(key, new Text(property+";"+set));
 		}
 	
 	}
@@ -55,59 +53,39 @@ public class KMeansIter {
 
 		public void map(IntWritable key, Text value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
 			double min = 2.0;
-			int minCenter = -1;
+			String minCenter = key.toString();
 			String dataProperty = value.toString();
 			String dataTuple[] = dataProperty.split(";");
 
-			for( Map.Entry<Integer, String> entry : centers.entrySet() ) {
-
-				if ( entry.getKey().equals(key.get()) ){
-					output.collect(key, new Text(dataTuple[0]+dataTuple[1]+";"+key.get()+":"+0.0));
-					return;
-				}
-				String centerProperty = entry.getValue();	
-
+			for( String canopy : dataTuple[1].split(" ")){
+				String centerProperty = centers.get(Integer.parseInt(canopy));
 				String centerTuple[] = centerProperty.split(";");
-				
-				boolean isSameCanopy = false;
-
-				for (String a : centerTuple[1].split(" "))
-					for (String b : dataTuple[1].split(" ")){
-						if ( a.equals(b) ){
-							isSameCanopy = true;
-							break;
-						}
-					}	
-
-				if ( isSameCanopy ){
-					double distance = cosineDistance(centerTuple[0], dataTuple[0]);
-					if ( min > distance ){
-						min = distance;
-						minCenter = entry.getKey();
-					}
+				double distance = cosineDistance(centerTuple[0], dataTuple[0]);
+				if ( min > distance ){
+					min = distance;
+					minCenter = canopy;
 				}
 				reporter.setStatus("I am alive");
 			}
-
-
-			output.collect(key, new Text(dataTuple[0]+dataTuple[1]+";"+minCenter+":"+min));
+			output.collect(new IntWritable(Integer.parseInt(minCenter)), new Text(key.get()+";"+dataTuple[0]));
 		}
+
 		private double cosineDistance(String A, String B){
 			double SquareA = 0.0;
 			double SquareB = 0.0;
 			double cross = 0.0;
 
 			for( String item : A.split(","))
-				SquareA += Math.pow(Integer.parseInt(item.split(":")[1]), 2);
+				SquareA += Math.pow(Double.parseDouble(item.split(":")[1]), 2);
 			for( String item : B.split(","))
-				SquareB += Math.pow(Integer.parseInt(item.split(":")[1]), 2);
+				SquareB += Math.pow(Double.parseDouble(item.split(":")[1]), 2);
 			
 			for( String itemA : A.split(","))
 				for( String itemB : B.split(",")){
 					String tupleA[] = itemA.split(":");
 					String tupleB[] = itemB.split(":");
 					if( tupleA[0].equals(tupleB[0]))
-						cross += Integer.parseInt(tupleA[1]) * Integer.parseInt(tupleB[1]);
+						cross += Double.parseDouble(tupleA[1]) * Double.parseDouble(tupleB[1]);
 				}
 
 			return 1.0 - cross / ( Math.sqrt(SquareA) * Math.sqrt(SquareB));
@@ -117,52 +95,49 @@ public class KMeansIter {
 
 	public static class ClusterReduce extends MapReduceBase implements Reducer<IntWritable, Text, IntWritable, Text> {
 		public void reduce(IntWritable key, Iterator<Text> values, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
-		}
-	}
-	public static class SelectMap extends MapReduceBase implements Mapper<IntWritable, Text, IntWritable, Text> {
-		public void map(IntWritable key, Text value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException{
-			 
-			String tuple[] = value.toString().split(";");	
-
-			output.collect( new IntWritable(Integer.parseInt(tuple[1].split(":")[0])),
-					new Text(key + ":" + tuple[1].split(":")[1]));  
-		
-		}
-	}
-	public static class SelectReduce extends MapReduceBase implements Reducer<IntWritable, Text, IntWritable, Text> {
-		public void reduce(IntWritable key, Iterator<Text> values, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
-			HashMap<Integer, Double> map = new HashMap<Integer, Double>();
-			double avg = 0.0;
-			double min = 2.0;
-			int count = 0;
-			int center = key.get();
-			String set = "";
-
-			while( values.hasNext() ){
+			HashMap<String, Rating> map = new HashMap<String, Rating>();
+			String cluster = "";
+			while(values.hasNext()){
 				String tmp = values.next().toString();
-				String tuple[] = tmp.split(":");
-				map.put( Integer.parseInt(tuple[0]), Double.parseDouble(tuple[1]));	
-				count++;
-				set += tuple[0] + " ";
+				String tuple[] = tmp.split(";");
+				String userRatings[] = tuple[1].split(",");
+				cluster += tuple[0]+" ";
+
+				for(String userRate : userRatings ){
+					String user = userRate.split(":")[0];
+					String rate = userRate.split(":")[1];
+					if ( map.containsKey(user)) {
+						Rating rating = map.get(user);
+						rating.merge(rate);
+						map.put(user, rating);
+					}
+					else {
+						Rating rating = new Rating(user+rate);
+						map.put(user, rating);
+					}
+				}
 			}
 
-			for( Map.Entry<Integer, Double> entry : map.entrySet()) 
-				avg += entry.getValue();
-			
-			avg = avg / count;	
+			ArrayList<Rating> list = new ArrayList<Rating>(map.values());
+			Collections.sort(list);
 
-			for( Map.Entry<Integer, Double> entry : map.entrySet()){
-				double abs = Math.abs(avg-entry.getValue());
-				if ( abs < min ) {
-					min = abs;
-					center = entry.getKey();
-				}	
+			for( Rating rating : list ){
+				if ( map.size() < 100000 )
+					break;
+				else
+					map.remove(rating.user);
 			}
-			output.collect( new IntWritable(center), new Text(set.trim()));
+
+			String property = "";
+			for( Map.Entry<String, Rating> entry : map.entrySet() )
+				property += ","+entry.getKey()+":"+entry.getValue().avg();
+
+			property = property.substring(1);
+
+			output.collect(key, new Text(property + ";"+ cluster.trim()));
 		}
-
 	}
-	public static void runJob(String set, String data, String center, String output, String cluster) throws Exception {
+	public static void runJob(String data, String set, String iterPath , int iterNum ) throws Exception {
 		// find cluster center
 		JobConf conf = new JobConf(KMeansIter.class);
 
@@ -174,49 +149,32 @@ public class KMeansIter {
 
 		conf.setReducerClass(CenterReduce.class); // only one reducer required
 
-		MultipleInputs.addInputPath(conf, new Path(set), SequenceFileInputFormat.class, CenterMap.class);
+		MultipleInputs.addInputPath(conf, new Path(set), SequenceFileInputFormat.class, IdentityMapper.class);
 		MultipleInputs.addInputPath(conf, new Path(data), SequenceFileInputFormat.class, IdentityMapper.class);
-		FileSystem.get(conf).delete(new Path(center), true);
-		FileOutputFormat.setOutputPath(conf, new Path(center));
+		FileSystem.get(conf).delete(new Path(iterPath+0), true);
+		FileOutputFormat.setOutputPath(conf, new Path(iterPath+0));
 		JobClient.runJob(conf);
 
 
-		// let cluster begin
-		conf = new JobConf(KMeansIter.class);
-		conf.setJobName("Kmeans");
+		for( int i = 1 ; i <= iterNum ; i++ ){
+			// let cluster begin
+			conf = new JobConf(KMeansIter.class);
+			conf.setJobName("Kmeans"+i);
 
-		conf.set("center", center);
-		conf.setOutputKeyClass(IntWritable.class);
-		conf.setOutputValueClass(Text.class);
-		conf.setOutputFormat(SequenceFileOutputFormat.class);
+			conf.set("center", iterPath+(i-1));
+			conf.setOutputKeyClass(IntWritable.class);
+			conf.setOutputValueClass(Text.class);
+			conf.setOutputFormat(SequenceFileOutputFormat.class);
 
-		conf.setMapperClass(ClusterMap.class);
-		conf.setInputFormat(SequenceFileInputFormat.class);
+			conf.setMapperClass(ClusterMap.class);
+			conf.setInputFormat(SequenceFileInputFormat.class);
 
-		FileSystem.get(conf).delete(new Path(output), true);
-		FileOutputFormat.setOutputPath(conf, new Path(output));
-		FileInputFormat.setInputPaths(conf, new Path(data));
-		JobClient.runJob(conf);
-
-		//create new center
-		conf = new JobConf(KMeansIter.class);
-		conf.setJobName("New Center");
-		
-		conf.setOutputKeyClass(IntWritable.class);
-		conf.setOutputValueClass(Text.class);
-		conf.setOutputFormat(SequenceFileOutputFormat.class);
-		
-		conf.setMapperClass(SelectMap.class);
-		conf.setReducerClass(SelectReduce.class);
-		conf.setInputFormat(SequenceFileInputFormat.class);
-		
-		FileSystem.get(conf).delete(new Path(cluster), true);
-		FileOutputFormat.setOutputPath(conf, new Path(cluster));
-		FileInputFormat.setInputPaths(conf, new Path(output));
-		JobClient.runJob(conf);
+			FileSystem.get(conf).delete(new Path(iterPath+i), true);
+			FileOutputFormat.setOutputPath(conf, new Path(iterPath+i));
+			FileInputFormat.setInputPaths(conf, new Path(data));
+			JobClient.runJob(conf);
+		}
 	}
 	public static void main(String args[]) throws Exception {
-		runJob("/tmp/kmeans/canopy", "/tmp/kmeans/data", "/tmp/kmeans/center", "/tmp/kmeans/iter", "/tmp/kmeans/cluster");
-		runJob("/tmp/kmeans/cluster", "/tmp/kmeans/data", "/tmp/kmeans/center", "/tmp/kmeans/iter", "/tmp/kmeans/cluster");
 	}
 }

@@ -4,8 +4,8 @@ public class KMeans{
 		DataPrepare.runJob(args[0], "/kmeans/dataprepare");
 		Canopy.runJob("/kmeans/dataprepare","/kmeans/canopy", "100");
 		MarkData.runJob("/kmeans/dataprepare", "/kmeans/canopy","/kmeans/data");
-		KMeansIter.runJob("/kmeans/canopy", "/kmeans/data", "/kmeans/center", "/kmeans/iter", "/kmeans/cluster");
-		KMeansIter.runJob("/kmeans/cluster", "/kmeans/data", "/kmeans/center", "/kmeans/iter", "/kmeans/cluster");
+		KMeansIter.runJob("/kmeans/data", "/kmeans/canopy" , "/kmeans/iter", 1 );
+		Viewer.runJob("/kmeans/iter1", "/kmeans/cluster");
 	}
 
 }
