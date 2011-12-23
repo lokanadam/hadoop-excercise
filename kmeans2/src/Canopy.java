@@ -8,14 +8,14 @@ import org.apache.hadoop.mapred.*;
 import org.apache.hadoop.util.*;
 
 public class Canopy {
-	public static class IndexInvertMap extends MapReduceBase implements Mapper<IntWritable, Text, Text, Text> {
-		private Text user = new Text();
+	public static class IndexInvertMap extends MapReduceBase implements Mapper<IntWritable, Text, IntWritable, Text> {
 		private Text movie = new Text();
-		public void map(IntWritable key, Text value, OutputCollector<Text, Text> output, Reporter reporter) throws IOException {
+		private IntWritable user = new IntWritable();
+		public void map(IntWritable key, Text value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
 			String line = value.toString();
 			StringTokenizer tokens = new StringTokenizer(line, ",");
 			while(tokens.hasMoreTokens()){
-				user.set(tokens.nextToken().split(":")[0]);
+				user.set(Integer.parseInt((tokens.nextToken().split(":")[0])));
 				movie.set(key.toString());
 				output.collect(user, movie);
 			}
@@ -23,27 +23,25 @@ public class Canopy {
 
 	}
 
-	public static class IndexInvertReduce extends MapReduceBase implements Reducer<Text, Text, LongWritable, Text> {
+	public static class IndexInvertReduce extends MapReduceBase implements Reducer<IntWritable, Text, IntWritable, Text> {
 		private Text mList = new Text();
-		private LongWritable user = new LongWritable();
-		public void reduce(Text key, Iterator<Text> values, OutputCollector<LongWritable, Text> output, Reporter reporter) throws IOException {
-			user.set(Long.parseLong(key.toString()));
+		public void reduce(IntWritable key, Iterator<Text> values, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
 			
-			String tmp = "";
+			StringBuffer tmp = new StringBuffer();
 			while(values.hasNext()){
-				tmp += values.next().toString();
+				tmp.append(values.next().toString());
 				if ( values.hasNext() )
-					tmp +=" ";
+					tmp.append(" ");
 			}
 
-			mList.set(tmp);
+			mList.set(tmp.toString());
 
-			output.collect(user, mList);	
+			output.collect(key, mList);	
 		}
 	}
 
-	public static class CanopyMap extends MapReduceBase implements Mapper<LongWritable, Text, IntWritable, IntWritable> {
-		public void map(LongWritable key, Text value, OutputCollector<IntWritable, IntWritable> output, Reporter reporter) throws IOException {
+	public static class CanopyMap extends MapReduceBase implements Mapper<IntWritable, Text, IntWritable, IntWritable> {
+		public void map(IntWritable key, Text value, OutputCollector<IntWritable, IntWritable> output, Reporter reporter) throws IOException {
 			String movies[] = value.toString().split(" ");
 			for( int i = 0 ; i < movies.length ; i++ )
 				for( int j = 0 ; j < movies.length ; j++ ){
@@ -58,7 +56,7 @@ public class Canopy {
 		private Set<Integer> points;
 		public void configure(JobConf conf){
 			points = new HashSet<Integer>();	
-			for( int i = 0 ; i < Integer.parseInt(conf.get("movie number")); i++ )
+			for( int i = 1 ; i < Integer.parseInt(conf.get("movie number")); i++ )
 				points.add(i);
 		}
 		public void reduce(IntWritable key, Iterator<IntWritable> values, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
@@ -70,9 +68,7 @@ public class Canopy {
 		
 				while( values.hasNext() ){
 					int i = values.next().get();
-					if( !points.contains(i) )
-						continue;
-					else if( map.containsKey(i) && map.get(i) == 8)
+					if( map.containsKey(i) && map.get(i) == 8)
 						points.remove(i);
 					else if( map.containsKey(i) )
 						map.put(i, map.get(i) + 1);
@@ -80,12 +76,14 @@ public class Canopy {
 						map.put(i, 1);
 				}
 				
-				String canopy = key.toString();
+				StringBuffer canopy = new StringBuffer(key.toString());
 				for(Map.Entry<Integer, Integer> entry : map.entrySet()){
-					if( entry.getValue() >= 2)
-						canopy += "," + entry.getKey();
+					if( entry.getValue() >= 2) {
+						canopy.append(",");
+						canopy.append(entry.getKey());
+					}
 				}
-				output.collect(key, new Text(canopy));
+				output.collect(key, new Text(canopy.toString()));
 			}	
 		}
 	}
@@ -94,10 +92,10 @@ public class Canopy {
 		JobConf iconf = new JobConf(Canopy.class);
 		iconf.setJobName("IndexInvert");
 
-		iconf.setMapOutputKeyClass(Text.class);
+		iconf.setMapOutputKeyClass(IntWritable.class);
 		iconf.setMapOutputValueClass(Text.class);
 
-		iconf.setOutputKeyClass(LongWritable.class);
+		iconf.setOutputKeyClass(IntWritable.class);
 		iconf.setOutputValueClass(Text.class);
 
 		iconf.setMapperClass(IndexInvertMap.class);

@@ -10,10 +10,12 @@ import org.apache.hadoop.util.*;
 
 public class MarkData {
 	public static class CanopyMap extends MapReduceBase implements Mapper<IntWritable, Text, IntWritable, Text> {
+		private IntWritable movieid = new IntWritable();
 		public void map(IntWritable key, Text value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException{
 			String set[] = value.toString().split(",");
 			for(String movie : set){
-				output.collect( new IntWritable(Integer.parseInt(movie)),
+				movieid.set(Integer.parseInt(movie));
+				output.collect( movieid,
 						new Text(key.toString()));
 			}
 		}
@@ -23,18 +25,19 @@ public class MarkData {
 		private MultipleOutputs multipleOutputs;
 
 		public void reduce(IntWritable key, Iterator<Text> values, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
-			String canopyMark = "";
+			StringBuffer canopyMark = new StringBuffer();
 			String property = "";
 			String tmp;
 			while(values.hasNext()){
 				tmp = values.next().toString();
 				if ( tmp.indexOf(':') == -1 ) {
-					canopyMark += tmp + " ";
+					canopyMark.append(tmp);
+					canopyMark.append(" ");
 				}
 				else
 					property = tmp;
 			}
-			output.collect(key,new Text(property + ";" +canopyMark.trim()));	
+			output.collect(key,new Text(property + ";" +canopyMark.toString().trim()));	
 
 		}
 	}
