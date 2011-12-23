@@ -30,7 +30,7 @@ public class KMeansIter {
 	
 	}
 	public static class ClusterMap extends MapReduceBase implements Mapper<IntWritable, Text, IntWritable, Text> {
-		private HashMap<Integer, String> centers = new HashMap<Integer, String>();
+		private HashMap<Integer, HashMap<String, Double>> centers = new HashMap<Integer, HashMap<String, Double>>();
 
 		@Override
 		public void configure(JobConf conf) {
@@ -41,8 +41,14 @@ public class KMeansIter {
 				IntWritable key = new IntWritable();
 				Text value = new Text();
 
-				while (reader.next(key, value)) 
-					centers.put(key.get(), value.toString());
+				while (reader.next(key, value)) {
+					HashMap<String, Double> ratings = new HashMap<String, Double>(); 
+					for( String rating : value.toString().split(";")[0].split(",") ){
+						String rTuple[] = rating.split(":");
+						ratings.put(rTuple[0], Double.parseDouble(rTuple[1]));
+					}
+					centers.put(key.get(), ratings);
+				}
 				
 				reader.close();
 			}
@@ -53,40 +59,43 @@ public class KMeansIter {
 
 		public void map(IntWritable key, Text value, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
 			double min = 2.0;
+			int count = 0;
 			String minCenter = key.toString();
 			String dataProperty = value.toString();
 			String dataTuple[] = dataProperty.split(";");
-
+			
+			HashMap<String, Double> map = new HashMap<String, Double>();
+			for( String rating : dataTuple[0].split(",")){
+				String rTuple[] = rating.split(":");
+				map.put(rTuple[0], Double.parseDouble(rTuple[1]));
+			}
 			for( String canopy : dataTuple[1].split(" ")){
-				String centerProperty = centers.get(Integer.parseInt(canopy));
-				String centerTuple[] = centerProperty.split(";");
-				double distance = cosineDistance(centerTuple[0], dataTuple[0]);
+				double distance = cosineDistance(centers.get(Integer.parseInt(canopy)), map);
 				if ( min > distance ){
 					min = distance;
 					minCenter = canopy;
 				}
-				reporter.setStatus("I am alive");
+				reporter.setStatus("Map: I am alive "+ count++);
 			}
 			output.collect(new IntWritable(Integer.parseInt(minCenter)), new Text(key.get()+";"+dataTuple[0]));
 		}
 
-		private double cosineDistance(String A, String B){
+		private double cosineDistance(HashMap<String,Double> A, HashMap<String,Double> B){
 			double SquareA = 0.0;
 			double SquareB = 0.0;
 			double cross = 0.0;
+			boolean firstInner = false;
 
-			for( String item : A.split(","))
-				SquareA += Math.pow(Double.parseDouble(item.split(":")[1]), 2);
-			for( String item : B.split(","))
-				SquareB += Math.pow(Double.parseDouble(item.split(":")[1]), 2);
+			Set<Map.Entry<String, Double>> setA = A.entrySet();
+			Set<Map.Entry<String, Double>> setB = B.entrySet();
+			for( Map.Entry<String, Double> entryA : setA )
+				SquareA += Math.pow(entryA.getValue(), 2);
+			for( Map.Entry<String, Double> entryB : setB )
+				SquareB += Math.pow(entryB.getValue(), 2);
 			
-			for( String itemA : A.split(","))
-				for( String itemB : B.split(",")){
-					String tupleA[] = itemA.split(":");
-					String tupleB[] = itemB.split(":");
-					if( tupleA[0].equals(tupleB[0]))
-						cross += Double.parseDouble(tupleA[1]) * Double.parseDouble(tupleB[1]);
-				}
+			for( Map.Entry<String, Double> entryA : setA )
+				if ( B.containsKey(entryA.getKey()))
+					cross += entryA.getValue() * B.get(entryA.getKey());	
 
 			return 1.0 - cross / ( Math.sqrt(SquareA) * Math.sqrt(SquareB));
 		}
@@ -96,45 +105,56 @@ public class KMeansIter {
 	public static class ClusterReduce extends MapReduceBase implements Reducer<IntWritable, Text, IntWritable, Text> {
 		public void reduce(IntWritable key, Iterator<Text> values, OutputCollector<IntWritable, Text> output, Reporter reporter) throws IOException {
 			HashMap<String, Rating> map = new HashMap<String, Rating>();
-			String cluster = "";
+			StringBuffer cluster = new StringBuffer();
 			while(values.hasNext()){
 				String tmp = values.next().toString();
 				String tuple[] = tmp.split(";");
 				String userRatings[] = tuple[1].split(",");
-				cluster += tuple[0]+" ";
+				cluster.append(tuple[0]);
+				if ( values.hasNext() )
+					cluster.append(" ");
 
 				for(String userRate : userRatings ){
 					String user = userRate.split(":")[0];
 					String rate = userRate.split(":")[1];
 					if ( map.containsKey(user)) {
-						Rating rating = map.get(user);
-						rating.merge(rate);
-						map.put(user, rating);
+						map.get(user).merge(rate);
 					}
 					else {
-						Rating rating = new Rating(user+rate);
+						Rating rating = new Rating(user+":"+rate);
 						map.put(user, rating);
 					}
+					reporter.setStatus("I am alive");
 				}
 			}
 
 			ArrayList<Rating> list = new ArrayList<Rating>(map.values());
+			reporter.setStatus("init list");
 			Collections.sort(list);
+			reporter.setStatus("after sort");
 
 			for( Rating rating : list ){
-				if ( map.size() < 100000 )
+				if ( map.size() < 1000 )
 					break;
 				else
 					map.remove(rating.user);
+				reporter.setStatus("remove movies");
 			}
 
-			String property = "";
-			for( Map.Entry<String, Rating> entry : map.entrySet() )
-				property += ","+entry.getKey()+":"+entry.getValue().avg();
+			StringBuffer property = new StringBuffer();
+			int map_size = map.size();
+			int count = 0;
+			for( Map.Entry<String, Rating> entry : map.entrySet() ){
+				property.append(entry.getKey());
+				property.append(":");
+				property.append(entry.getValue().avg());
+				if (++count < map_size )
+					property.append(",");
+				
+				reporter.setStatus("I am alive");
+			}
 
-			property = property.substring(1);
-
-			output.collect(key, new Text(property + ";"+ cluster.trim()));
+			output.collect(key, new Text(property.toString()+";"+cluster.toString()));
 		}
 	}
 	public static void runJob(String data, String set, String iterPath , int iterNum ) throws Exception {
@@ -162,11 +182,16 @@ public class KMeansIter {
 			conf.setJobName("Kmeans"+i);
 
 			conf.set("center", iterPath+(i-1));
+			if ( i == iterNum )
+				conf.set("stage", "final");
+			else
+				conf.set("stage", "iter");
 			conf.setOutputKeyClass(IntWritable.class);
 			conf.setOutputValueClass(Text.class);
 			conf.setOutputFormat(SequenceFileOutputFormat.class);
 
 			conf.setMapperClass(ClusterMap.class);
+			conf.setReducerClass(ClusterReduce.class);
 			conf.setInputFormat(SequenceFileInputFormat.class);
 
 			FileSystem.get(conf).delete(new Path(iterPath+i), true);
