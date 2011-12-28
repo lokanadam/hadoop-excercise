@@ -49,6 +49,7 @@ public class LineIndexer {
 			System.out.println("Usage: LineIndexer <input path> <output path>");
 			System.exit(0);
 		}
+		FileSystem.get(conf).delete(new Path(args[1]), true);
 		FileInputFormat.setInputPaths(conf, new Path(args[0]));
 		FileOutputFormat.setOutputPath(conf, new Path(args[1]));
 		JobClient.runJob(conf);
