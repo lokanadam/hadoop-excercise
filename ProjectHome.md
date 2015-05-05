@@ -1,0 +1,1 @@
+this is a personal exercise on hadoop
